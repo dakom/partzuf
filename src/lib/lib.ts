@@ -1,9 +1,8 @@
-export * from "./core/World";
+export * from "./core/errors";
+export * from "./core/query";
 export {
     Entity, 
-    EntityList, 
-    EntityId, 
-    EntityVersion,
     extract_entity_id,
     extract_entity_version,
-} from "./core/entity";
+} from "./core/entities";
+export {init_ecs} from "./core/ecs"

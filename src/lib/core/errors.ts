@@ -1,4 +1,4 @@
-export enum ErrorType {
-    NO_ENTITY = "No such entity",
-    EXHAUSTED_ENTITY_REMOVAL = "Ran out of room for entity removal"
+export enum ErrorKind {
+  NO_KEY = "No such key",
+  EXHAUSTED_KEY_REMOVAL = "Ran out of room for key removal"
 }
