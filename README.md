@@ -46,6 +46,17 @@ const IMAGE = 2;
 
 3. Instantiate entities, add components, iterate over subset of components, etc.
 
+There's no hard limit to systems - you can jump around in whatever components you want (which could be what hurts performance):
+
+```
+for (const [entity, [t, r, s]] of ecs.iter_components([TRANSLATION, ROTATION, SCALE])) {
+    const local_matrix = fromRotationTranslationScale(r, t, s);
+    ecs.set_components([
+        [LOCAL_MATRIX, local_matrix],
+    ]) (entity);
+}
+```
+
 See the tests and benchmark for examples 
 
 # Notes on optimization and features
