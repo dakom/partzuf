@@ -50,6 +50,6 @@ See the tests and benchmark for examples
 
 # Notes on optimization and features
 
-As noted above - there is no group/pack mechanism. Mainly because there's no way of inlining data in JS anyway, so if that level of hand-tuned optimization is required - use C++/Rust/C.
+As noted above - there is no group/pack mechanism. Mainly because there's no way of manually aligning data in JS anyway, so if that level of hand-tuned optimization is required - use C++/Rust/C.
 
 There's also a bunch of other features that would be nice to add, but aren't here (like boolean queries).
