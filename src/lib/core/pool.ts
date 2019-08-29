@@ -11,6 +11,8 @@ export interface Pool<T> extends Iterable<[Entity, T]>{
     insert: (entity:Entity, data:T) => void;
     remove: (entity:Entity) => void;
     get: (entity:Entity) => Option<T>;
+    get_unchecked: (entity:Entity) => T;
+    has_entity: (entity:Entity) => boolean;
     components_iter: Iterable<T>;
     entities_iter: Iterable<Entity>;
 
@@ -40,13 +42,14 @@ export const init_pool = <T>():Pool<T> => {
             entity_indices[entity_id] = entities.length;
             entities.push(entity_id);
             components.push(data);
+
             total++;
         }
     }
 
     const has_entity  = (entity:Entity):boolean => {
         const entity_id = extract_entity_id(entity);
-        return entity_indices[entity_id] != INVALID_ID;
+        return entities[entity_indices[entity_id]] === entity_id 
     }
 
     const remove = (entity:Entity) => {
@@ -67,7 +70,11 @@ export const init_pool = <T>():Pool<T> => {
         if(!has_entity(entity)) {
             return none;
         }
-        return some(components[extract_entity_id(entity)]);
+        return some(get_unchecked(entity));
+    }
+
+    const get_unchecked = (entity:Entity):T => {
+        return components[entities[extract_entity_id(entity)]];
     }
 
     const components_iter:Iterable<T> = {
@@ -102,6 +109,7 @@ export const init_pool = <T>():Pool<T> => {
 
 
     return {
+        has_entity,
         realloc_entities,
         insert,
         remove,
@@ -110,6 +118,7 @@ export const init_pool = <T>():Pool<T> => {
         entities_list: entities,
         components_list: components,
         get,
+        get_unchecked,
         [Symbol.iterator]: () => {
             let index = 0;
             const next = () => {

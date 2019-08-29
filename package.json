@@ -1,6 +1,6 @@
 {
   "name": "partzuf",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "partzuf",
   "main": "dist/lib.cjs.js",
   "module": "dist/lib.esm.js",
@@ -39,7 +39,7 @@
     "rollup-plugin-node-resolve": "5.2.0",
     "rollup-plugin-postcss": "^2.0.3",
     "rollup-plugin-replace": "2.2.0",
-    "rollup-plugin-typescript2": "0.23.0",
+    "rollup-plugin-typescript2": "0.24.0",
     "rollup-plugin-uglify": "6.0.2",
     "shelljs": "0.8.3",
     "ts-jest": "24.0.2",
@@ -48,8 +48,5 @@
     "typedoc": "^0.15.0",
     "typescript": "3.6.2",
     "uglify-es": "3.3.9"
-  },
-  "peerDependencies": {
-    "fp-ts": "2.x"
   }
 }

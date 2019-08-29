@@ -1,9 +1,9 @@
-import {create_slotmap, SlotMap, MAX_ID} from "../lib/lib";
+import {ECS, init_ecs} from "../lib/lib";
 import * as O from "fp-ts/lib/Option";
 import {Option} from "fp-ts/lib/Option";
 import {Either} from "fp-ts/lib/Either";
 import * as E from "fp-ts/lib/Either";
-export type MySlotMap = SlotMap<EntityTypes>;
+export type MyECS = ECS<ComponentTypes>;
 export type MyNativeMap = Map<any, Entity>;
 
 export const ACTIVE = 0;
@@ -16,48 +16,50 @@ export const MATERIAL = 6;
 export const WORLD_MATRIX = 7;
 export const COLLIDER = 8;
 
-const N_ENTITIES = 1000;
+const N_ENTITIES = 100;
+const SHUFFLE = true;
 
 export const simulate_quick_either = <V>(value:V):V =>
     E.getOrElse(() => null) (E.right(value));
 
 //Prep mock data
-export const prep_mock_data = ():[MySlotMap, MyNativeMap] => {
-    let slotmap:MySlotMap;
+export const prep_mock_data = ():[MyECS, MyNativeMap] => {
+    let ecs:MyECS;
     let nativemap:MyNativeMap;
 
-    slotmap = create_slotmap();
+    ecs = init_ecs<ComponentTypes>(9);
     nativemap = new Map();
 
-    let slotmap_entities = [];
+    let ecs_entities = [];
     let nativemap_entities = [];
 
     for(let i = 0; i < N_ENTITIES; i++) {
-        slotmap_entities.push(insert_slotmap(slotmap));
+        ecs_entities.push(insert_ecs(ecs));
         nativemap_entities.push(insert_nativemap(nativemap));
     }
 
-    shuffle(slotmap_entities);
-    shuffle(nativemap_entities);
+    if(SHUFFLE) {
+        shuffle(ecs_entities);
+        shuffle(nativemap_entities);
 
-    for(let i = 0; i < 5; i++) {
-        const tmp_slotmap_entities = slotmap_entities.splice(0,N_ENTITIES/2);
-        const tmp_nativemap_entities = nativemap_entities.splice(0,N_ENTITIES/2);
+        for(let i = 0; i < 5; i++) {
+            const tmp_ecs_entities = ecs_entities.splice(0,N_ENTITIES/2);
+            const tmp_nativemap_entities = nativemap_entities.splice(0,N_ENTITIES/2);
 
-        tmp_slotmap_entities.forEach(entity => {
-            slotmap.remove(entity);
-        });
-        tmp_nativemap_entities.forEach(entity => {
-            nativemap.delete(entity);
-        });
+            tmp_ecs_entities.forEach(entity => {
+                ecs.remove_entity(entity);
+            });
+            tmp_nativemap_entities.forEach(entity => {
+                nativemap.delete(entity);
+            });
 
-        for(let i = 0; i < N_ENTITIES/2; i++) {
-            slotmap_entities.push(insert_slotmap(slotmap));
-            nativemap_entities.push(insert_nativemap(nativemap));
+            for(let i = 0; i < N_ENTITIES/2; i++) {
+                ecs_entities.push(insert_ecs(ecs));
+                nativemap_entities.push(insert_nativemap(nativemap));
+            }
         }
     }
-
-    return [slotmap, nativemap];
+    return [ecs, nativemap];
 }
 //https://stackoverflow.com/questions/6274339/how-can-i-shuffle-an-array
 function shuffle(a) {
@@ -68,39 +70,18 @@ function shuffle(a) {
     return a;
 }
 
-export const unwrap_get = <V>(target:Option<Either<any, V>>):V =>
-    E.fold(
-        e => {
-            throw new Error(String(e));
-        }, 
-        x => x
-    ) (O.fold(
-        () => E.left("no result"),
-        x => x as Either<any, V>
-    ) (target)) as V;
 
-export const unwrap_get_native = (entity, nativemap:MyNativeMap):Entity => 
-        unwrap_get(get_native(entity, nativemap));
-
-export const get_native = (entity, nativemap:MyNativeMap) => 
-        nativemap.has(entity)
-            ? O.some(E.right(nativemap.get(entity)))
-            : O.none
-
-export const unwrap_either = <T>(value:Either<any, T>):T => 
-        E.fold(() => null, (x:T) => x) (value);
-
-const insert_slotmap = (slotmap:MySlotMap) => {
-    const entity = slotmap.insert([
-        rand_bool(),
-        rand_point(),
-        rand_quat(),
-        rand_point(),
-        rand_mat4(),
-        rand_point(),
-        rand_material(),
-        rand_mat4(),
-        rand_collider()
+const insert_ecs = (ecs:MyECS) => {
+    const entity = ecs.create_entity([
+        [ACTIVE, rand_bool()],
+        [TRANSLATION, rand_point()],
+        [ROTATION, rand_quat()],
+        [SCALE, rand_point()],
+        [LOCAL_MATRIX, rand_mat4()],
+        [VELOCITY, rand_point()],
+        [MATERIAL, rand_material()],
+        [WORLD_MATRIX, rand_mat4()],
+        [COLLIDER, rand_collider()]
     ]);
 
     return entity;
@@ -176,7 +157,7 @@ const rand_collider = ():Collider => ({
     center: rand_point()
 })
 
-export type EntityTypes = [
+export type ComponentTypes = [
     boolean,
     Translation,
     Rotation,

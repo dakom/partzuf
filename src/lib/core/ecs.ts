@@ -1,9 +1,65 @@
-import {Pool, init_pool} from "./pool";
-import {Entity, init_entities} from "./entities";
-import {fold as oFold, Option, some, none, map as oMap, chain as oChain} from "fp-ts/lib/Option";
-import {QueryWrapper} from "./query";
+import { fold as oFold } from "fp-ts/lib/Option";
+import { fold as eFold } from "fp-ts/lib/Either";
+import {ErrorKind} from "./errors";
+import { Entity, init_entities } from "./entities";
+import { init_pool, Pool } from "./pool";
 
-export const init_ecs = <T extends Array<any>>(n_components:T["length"]) => {
+export interface ECS<T extends Array<any>> {
+
+    /**
+     * Create a new entity
+     * 
+     * @param initial_components - (optional) initial components to set for the entity
+     */
+    create_entity: <I extends number>(initial_components:Array<[I, T[I]]>) => Entity;
+
+    /**
+     * Get all the components for a given entity
+     * 
+     * @param entity - the target entity
+     */
+    get_components: (entity:Entity) => Array<[number, T]>;
+    /**
+     * Set the components for a given entity
+     * 
+     * @param components - the components to set. A tuple where the first value is the component index, second is the component data
+     * @param entity - the entity to set the components for
+     */
+    set_components: <I extends number>(components: Array<[I, T[I]]>) => (entity:Entity) => void;
+    /**
+     * Remove the components for a given entity
+     * 
+     * @param component_types - the components to remove (by index)
+     * @param entity - the entity to remove the components for
+     */
+    remove_components: <I extends number>(component_types:Array<I>) => (entity:Entity) => void; 
+    /**
+     * Iterate over all entities that have a given set of components
+     * The iterator returns a tuple of [Entity, Array<ComponentData>] corresponding to the requested components
+     * 
+     * @param component_types - the components to iterate over (by index)
+     */
+    iter_components: <I extends number>(component_types:Array<I>) => Iterable<[Entity, Array<T[I]>]>;
+
+    /**
+     * Remove an entity (and all its component data)
+     * 
+     * @param entity - the entity to remove
+     */
+    remove_entity: (entity:Entity) => void;
+
+    /**
+     * Returns the number of entities
+     */
+    entities_len: () => number;
+}
+
+/**
+ * Create an ECS 
+ * 
+ * @param n_components - the number of components
+ */
+export const init_ecs = <T extends Array<any>>(n_components:T["length"]):ECS<T> => {
     const entities = init_entities();
     const pools:Array<Pool<T>> = [];
 
@@ -51,115 +107,66 @@ export const init_ecs = <T extends Array<any>>(n_components:T["length"]) => {
             });
     }
 
-    type ComponentUpdater = <I extends number>(all_entity_components:Array<[I,T[I]]>) => Array<[I,T[I]]>;
-    const update_components = (updater: ComponentUpdater) => (entity:Entity) => {
-        const all_entity_components = get_components(entity);
-        const components_to_set = updater(all_entity_components);
-        set_components (components_to_set) (entity);
+    const remove_entity = (entity:Entity) => {
+        pools.forEach(pool => pool.remove(entity));
+        eFold(
+            (e:ErrorKind) => {
+                if(e === ErrorKind.EXHAUSTED_KEY_REMOVAL) {
+                    throw new Error(e);
+                }
+            },
+            () => {}
+        ) (entities.remove(entity));
     }
 
-    const iter_components_raw = <I extends number>(component_types:Array<I>):Iterable<Array<Option<[Entity, T[I]]>>> => ({
-        [Symbol.iterator]: () => {
-            let index = 0;
-
-            const pool_iters = 
-                component_types
-                    //can't verify I at type level, so gotta filter bad values at runtime
-                    .filter(n => n >= 0 && n < n_components)
-                    .map(c_index => pools[c_index])
-                    .map(pool => pool[Symbol.iterator]());
-
-            const next = () => {
-
-                const next_values = pool_iters.map(({next}) => next());
-
-                if(next_values.every(({done}) => done)) {
-                    return {done: true, value: undefined}
-                }
-
-                const value = next_values.map(({done, value}) => 
-                    done 
-                        ? none
-                        : some(value)
-                );
-
-                return {done: false, value};
-            }
-
-            return {next}
-        }
-    });
-
-
-    //TODO - this is a mess... can definitely simplify
-    const iter_components = <I extends number>(component_types:Array<I | QueryWrapper>):Iterable<[Entity, Array<T[I]>]> => ({
+    const iter_components = <I extends number>(component_types:Array<I>):Iterable<[Entity, Array<T[I]>]> => ({
         [Symbol.iterator]: () => {
             let index = 0;
 
             let query_pools = 
                 component_types
-                    .map(n => ({
-                        value: typeof n === "number" ? n : n.index,
-                        original: n
-                    }))
                     //can't verify I at type level, so gotta filter bad values at runtime
-                    .filter(({value}) => value >= 0 && value < n_components)
-                    .map(({value, original}) => {
-                        return {
-                            pool: pools[value],
-                            query: original
-                        }
-                    })
-                    .sort((a, b) => b.pool.entities_list.length - a.pool.entities_list.length);
+                    .filter(n => n >= 0 && n < n_components)
+                    .map(n => pools[n])
+                    .sort((a, b) => a.entities_list.length - b.entities_list.length);
 
-            const longest_pool = query_pools.splice(0, 1)[0];
+            const shortest_pool = query_pools.splice(0, 1)[0];
+
+            const n_pools = component_types.length;
 
             const next = () => {
-                let keep_going:boolean;
-                let entity:Entity;
-                let ret_components:Array<T[I]>;
-                do { 
-                    if(index >= longest_pool.pool.entities_list.length) {
-                        return {done: true, value: undefined}
-                    }
+                while(index < shortest_pool.entities_list.length) { 
+                    const entity = shortest_pool.entities_list[index++];
 
+                    if(query_pools.every(pool => pool.has_entity(entity))) {
 
-                    entity = longest_pool.pool.entities_list[index];
-                    ret_components = [longest_pool.pool.components_list[index]];
-                    index++;
-                    keep_going = false;
-                    for(let i = 0; i < query_pools.length; i++) {
-                        const query_pool = query_pools[i];
-                        const idx = query_pool.pool.entities_list.indexOf(entity);
-                        const query_n = query_pool.query;
-                        if(typeof query_n === "number" || query_n.query_type === "has") {
-                            if(idx === -1) {
-                                keep_going = true;
-                                break;
-                            } 
-                            ret_components.push(query_pool.pool.components_list[idx]);
-                        } else {
-                            if(idx !== -1) {
-                                keep_going = true;
-                                break;
-                            }
+                        const components = Array(n_pools);
+
+                        for(let i = 0; i < n_pools; i++) {
+                            const pool = pools[component_types[i]];
+                            components[i] = pool.get_unchecked(entity);
+                        }
+                        return {
+                            done: false,
+                            value: [entity, components] as [Entity, Array<T[I]>]
                         }
                     }
-                } while(keep_going);
+                }
 
-                return {done: false, value: [entity, ret_components] as [Entity, Array<T[I]>]};
+                return {done: true, value: undefined}
             }
 
             return {next}
         }
     });
+
     return {
         create_entity,
         get_components,
         set_components,
         remove_components,
-        update_components,
-        iter_components_raw,
-        iter_components
+        iter_components,
+        remove_entity,
+        entities_len: entities.alive_len
     }
 }

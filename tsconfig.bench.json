@@ -1,0 +1,29 @@
+{
+    "compilerOptions": {
+        "target": "es6",
+        "module": "commonjs",
+        "sourceMap": true,
+        "esModuleInterop": true,
+        "moduleResolution": "node",
+        "diagnostics": true,
+        "outDir": "dist",
+        "jsx": "react",
+        "lib": [
+            "es6",
+            "es5",
+            "dom"
+        ]
+    },
+    "files": [
+        "**/*.ts",
+    ],
+    "include": [
+        "**/*.d.ts"
+    ],
+    "exclude": [
+        "node_modules",
+        "dist",
+        "build",
+        "coverage"
+    ]
+}
