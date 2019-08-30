@@ -134,18 +134,18 @@ export const init_ecs = <T extends Array<any>>(n_components:T["length"]):ECS<T> 
 
             const n_pools = component_types.length;
 
+
+            const all_pools = Array(n_pools);
+
+            for(let i = 0; i < n_pools; i++) {
+                all_pools[i] = pools[component_types[i]];
+            }
+
             const next = () => {
                 while(index < shortest_pool.entities_list.length) { 
                     const entity = shortest_pool.entities_list[index++];
-
+                    const components = all_pools.map(pool => pool.get_unchecked(entity));
                     if(query_pools.every(pool => pool.has_entity(entity))) {
-
-                        const components = Array(n_pools);
-
-                        for(let i = 0; i < n_pools; i++) {
-                            const pool = pools[component_types[i]];
-                            components[i] = pool.get_unchecked(entity);
-                        }
                         return {
                             done: false,
                             value: [entity, components] as [Entity, Array<T[I]>]

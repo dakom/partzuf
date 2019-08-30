@@ -14,11 +14,11 @@ It's inspired by [beach_map](https://github.com/leudz/beach_map) and [EnTT](http
 
 The only way it becomes faster than native map is when the following are true:
 1. Entities are all aligned and sorted
-2. Components are mutated directly
+2. Components are mutated directly in ECS and not nativemap
 
 If either of these are not true, then the ECS is significantly slower than using native map.
 
-This could maybe be mitigated via groups, archetypes, etc. - but at the end of the day, JS boxes Array values and it's probably better to stick with C++/Rust/C for this sort of stuff
+This could maybe be mitigated via groups, archetypes, etc. - but at the end of the day, JS boxes Array values and the Map iterator does some internal optimization. It's probably better to stick with C++/Rust/C for this sort of stuff
 
 # Installation
 
@@ -46,7 +46,7 @@ const IMAGE = 2;
 
 3. Instantiate entities, add components, iterate over subset of components, etc.
 
-There's no hard limit to systems - you can jump around in whatever components you want (which could be what hurts performance):
+There's no hard limit to systems - you can jump around in whatever components you want:
 
 ```
 for (const [entity, [t, r, s]] of ecs.iter_components([TRANSLATION, ROTATION, SCALE])) {
@@ -56,6 +56,8 @@ for (const [entity, [t, r, s]] of ecs.iter_components([TRANSLATION, ROTATION, SC
     ]) (entity);
 }
 ```
+
+Though it's better to update things mutably
 
 See the tests and benchmark for examples 
 
