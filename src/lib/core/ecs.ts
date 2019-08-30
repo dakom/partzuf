@@ -1,7 +1,7 @@
 import { fold as oFold } from "fp-ts/lib/Option";
 import { fold as eFold } from "fp-ts/lib/Either";
 import {ErrorKind} from "./errors";
-import { Entity, init_entities } from "./entities";
+import { Entity, init_entities, extract_entity_id } from "./entities";
 import { init_pool, Pool } from "./pool";
 
 export interface ECS<T extends Array<any>> {
@@ -128,7 +128,7 @@ export const init_ecs = <T extends Array<any>>(n_components:T["length"]):ECS<T> 
                     //can't verify I at type level, so gotta filter bad values at runtime
                     .filter(n => n >= 0 && n < n_components)
                     .map(n => pools[n])
-                    .sort((a, b) => a.entities_list.length - b.entities_list.length);
+                    .sort((a, b) => a.len() - b.len());
 
             const shortest_pool = query_pools.splice(0, 1)[0];
 
@@ -141,16 +141,22 @@ export const init_ecs = <T extends Array<any>>(n_components:T["length"]):ECS<T> 
                 all_pools[i] = pools[component_types[i]];
             }
 
+            const len = shortest_pool.len();
+
+            const shortest_entities = shortest_pool.entities();
+
             const next = () => {
-                while(index < shortest_pool.entities_list.length) { 
-                    const entity = shortest_pool.entities_list[index++];
-                    const components = all_pools.map(pool => pool.get_unchecked(entity));
-                    if(query_pools.every(pool => pool.has_entity(entity))) {
+                while(index < len) { 
+                    const entity = shortest_entities[index++];
+                    const id = extract_entity_id(entity);
+
+                    if(query_pools.every(pool => pool.has_entity_id(id))) {
+                        const components = all_pools.map(pool => pool.get_unchecked_id(id));
                         return {
                             done: false,
                             value: [entity, components] as [Entity, Array<T[I]>]
                         }
-                    }
+                    } 
                 }
 
                 return {done: true, value: undefined}
